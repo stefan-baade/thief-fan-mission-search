@@ -27,11 +27,12 @@ A live demo can be shown on a call.
 
 A player half-remembers a level from years ago — the shape of a room, an unusual
 enemy, the weather on the approach — and wants to find it again among 1,400
-candidates. The answer sits in material that already exists, but that material is
-a heap: hundreds of PDFs and spreadsheets written by dozens
-of authors in no common format, plus text sealed inside game archives (objectives,
-in-game books and notes, mission titles), plus a desktop loader's catalog file as
-the only registry of what exists.
+candidates. Some of what a player remembers is written down somewhere, and that
+material is a heap: hundreds of PDFs and spreadsheets written by dozens of authors
+in no common format, plus text sealed inside game archives (objectives, in-game
+books and notes, mission titles), plus a desktop loader's catalog file as the only
+registry of what exists. Some of it is written down nowhere, and that sets the
+ceiling for what any search over this corpus can reach.
 
 Three properties make this harder than a document search:
 
@@ -263,6 +264,13 @@ but counting them as "has a walkthrough" would inflate the number that matters.
 
 ## Limits, stated plainly
 
+- **The corpus is deliberately only what I already hold** — game archives and guide
+  files. Reviews, forum threads and other descriptive writing are not indexed,
+  because collecting them would mean crawling other people's sites, which was ruled
+  out. The consequence is a coverage limit rather than a ranking one: a memory of a
+  level's mood, its difficulty or how it played usually has no counterpart in a
+  walkthrough, which records what to do and not what it was like. No fusion key or
+  weight reaches that; only different source material would.
 - Roughly one package in five has no prose walkthrough. For those, search runs on
   in-game text only — a weaker corpus — and the coverage report keeps that visible
   rather than averaging it away.

@@ -373,10 +373,10 @@ right class of level and the wrong level — the same error a knowledgeable huma
 
 Recorded because the corrections are the actual work.
 
-**"The corpus does not hold what people remember."** Refuted by measurement. For one
-miss, the gold package contains the remembered object term in **34** chunks and two
-further remembered terms in 20 each — and appears in no track's top 200. The content
-is there; the ranking does not reach it.
+**"The corpus does not hold what people remember."** Refuted by measurement for the
+misses in this split. For one miss, the gold package contains the remembered object
+term in **34** chunks and two further remembered terms in 20 each — and appears in
+no track's top 200. The content is there; the ranking does not reach it.
 
 **"It is a vocabulary gap."** Partly true, and still the best reading for this split.
 The asker remembers a generic word where the corpus uses the level's own proper noun;
