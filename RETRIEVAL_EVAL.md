@@ -5,13 +5,15 @@ missions") for *Thief: The Dark Project* / *Thief Gold* and *Thief II: The Metal
 Age*, from a player's half-remembered description ([README](README.md)).
 
 This document is how that search was measured: one baseline, six strategies rejected
-on evidence, one defect diagnosed and fixed, and the part that is still open. Every
-number below comes from a run against a written-down gold set, not from a vendor
-benchmark and not from reading result lists and liking them.
+on evidence, one defect diagnosed and fixed, one query-side step measured against
+that baseline and integrated, and the part that is still open. Every number below
+comes from a run against a written-down gold set, not from a vendor benchmark and
+not from reading result lists and liking them.
 
 The short version: **the winning change came out of diagnosing a specific bug in
 how scores were combined, not out of tuning parameters.** Five of the six rejected
-strategies were parameter or weighting variants. All five lost.
+strategies were parameter or weighting variants. All five lost. The later
+query-side change had to clear a rule written down before its re-samples.
 
 > **Reading this document.** Individual queries are described by shape, or carry an
 > arbitrary label where a table needs rows (`R…` for the real forum questions, `M…`
@@ -31,7 +33,9 @@ those guides are deliberately *not* indexed: an image cannot be chunked, ranked 
 quoted back as evidence.
 
 Everything in this document ran on one machine — lexical index, embeddings,
-reranking and fusion. No step described here sends content to a third party.
+reranking and fusion — with one exception, described in §6: the query-keyword
+step sends the query text, and nothing else, to a hosted language model. No
+corpus text is sent to a third party.
 
 **Three retrieval tracks, fused by Reciprocal Rank Fusion (k=60):**
 
@@ -53,6 +57,7 @@ was worse (4/22 vs. 6/22).
 | Second split | 18 | Loot-table-shaped questions, written later, deliberately not merged into the frozen set |
 | Diagnostic | 1 | One package used to isolate the fusion defect |
 | Real forum questions | 10 | Verbatim "help me find this mission" questions with the answer the thread confirmed |
+| Date query | 1 | One of my own searches that also states the release window; I found the answer afterwards by other means |
 
 **Gold scope is written on every pair**, and it is two different conditions:
 
@@ -226,7 +231,7 @@ answer than a package with one, so let more than one chunk per track contribute.
 
 | Variant | `hit@10` (41 rows) | `hit@30` |
 |---|---:|---:|
-| Best 1 (shipped) | **22** | **27** |
+| Best 1 (kept) | **22** | **27** |
 | Best 2 | 22 | 24 |
 | Best 3 | 20 | 24 |
 
@@ -475,7 +480,7 @@ will eventually fuse two real authors. It is a **hand-curated correction list**,
 same pattern this project already trusts elsewhere (758 reviewed rows in the guide
 map) — curated, checked, never overwritten automatically.
 
-**Shipped, and measurably inert on this eval set: 21/41 and 25/41, unchanged.** That
+**Integrated, and measurably inert on this eval set: 21/41 and 25/41, unchanged.** That
 is the correct outcome, not a failed fix. The corrections merge two version families
 (3,300 chunks that were split across four groups), which removes duplicate rows from
 result lists — but the two queries still missing are mission-scope, and merging
@@ -515,27 +520,183 @@ speedup.
 
 ---
 
-## 6. What this evaluation is worth, and what it is not
+## 6. After the fusion fix: the query side
 
-**A lower bound on a small sample.** 22 + 18 + 10 queries. `hit@10` over 41 mixed
-rows folds two different gold conditions into one number; package-found and
-mission-found belong in **separate columns**, and that change is scheduled ahead of
-further ranking work. Without it, a drop cannot be read as a retrieval failure or a
-level-resolution failure.
+### 6.1 Why the query side, and why a model only now
 
-**Overfitting risk, named.** Every parameter touched here — the two BM25 constants,
-the RRF constant, pool depth — was tuned against the same 22 queries. That is why
-the one change that shipped is a defect fix with a mechanical explanation rather
-than a value that happened to score well, and why the remaining untried weighting
-idea is documented as set aside rather than tried.
+The search was built and measured without any language model first, on purpose: a
+baseline of how far retrieval alone gets. Only then a model was added where it
+could be measured against that baseline, under a data boundary: the player's query
+may go to a hosted model; corpus text does not.
 
-**Ranking work that is deliberately *not* next:** any further fusion-key or
-weighting variant. Six were measured; five lost and one shipped. The yield from that
-direction is exhausted, and the measured bottleneck is level binding.
+The ten real forum questions pointed at the query side: vocabulary gaps (§5.2) and
+facts the player states that the index never reads (a release date). The query side
+also needed no rebuild. Level binding (§5.3) remains the measured bottleneck for
+mission-scope rows.
+
+Steps that would need corpus text — a model reordering the top 30 using the chunks
+that made them rank; short per-level descriptions in player vocabulary generated at
+index time — are only possible with a local model and are not built. A German query
+path needs German eval queries written by hand, not by a model; that path is not
+measured yet.
+
+### 6.2 A stated date the index never read
+
+One of my own searches described a mission and also said it was released within
+the last two years. Those date words are noise to BM25, and the search did not find
+it. I found it afterwards without the search: I sorted the loader's list by date,
+scanned the releases from about two years back and recognised the title. That also
+gave the gold for this row.
+
+Through the product pipeline, pool 200: gold absent from the top 200. A post-filter
+of that 200 to recent releases: still absent — a post-filter cannot rescue what the
+pool never held. A pre-filter — restrict BM25 and vector search to the ~57 indexed
+packages released in the window, then run the same pipeline inside it — put gold at
+rank **11** (original wording) and **10** (date words removed).
+
+Rank 10–11 is the edge of a top-10 list. What found the mission was seeing titles
+inside a date window, not ranking. The catalog has a release date on most rows;
+undated packages are kept under a date filter.
+
+### 6.3 A model reading the date: measured, not integrated
+
+**Hypothesis.** One hosted model call could read a release window from the query —
+direction, years, and a verbatim quote that the code checks against the query — and
+apply it as a pre-filter.
+
+**Measured** on two versions of the prompt, one run each. A query saying "at least
+15+ years ago" was first read in the wrong direction (within 15 years). After a
+prompt revision, "It's old" became "older than 1 year", "played a few years ago" was read as a release
+date ("within 3 years", which would have filtered out that row's gold), and the
+date query itself came back with no reading. The model is called without a
+temperature setting, so one run cannot separate a prompt effect from sampling. The
+date rules were written after reading the date cues in the forum rows, so these
+rows only check rule-following, not generalisation.
+
+**Why rejected.** The reading went wrong in a different way on each run, and one
+wrong reading would have filtered out the gold. Filters are therefore set by the
+player in explicit fields; what the player sets is what the code applies. The model
+reading stays in the eval code, not in the application.
+
+### 6.4 Query keywords as a fourth track
+
+One call to a hosted model (`claude-haiku-4-5`) with a fixed system prompt and the
+player's query — nothing from the corpus. It returns up to 12 keywords in
+walkthrough and game-world vocabulary. The same reply also carries a written
+passage and a date reading; the product uses neither. Only query text reached the model: the eval
+questions, including the ten forum questions, which are queries by nature. No
+corpus text did.
+
+Locally, before retrieval: any keyword containing a catalog title of two or more
+words is removed (the prompt also forbids naming missions). A check for the model
+naming the gold title fired on 0 rows. The reranker always scores against the
+player's original query, so added words can bring candidates in but do not
+re-weight the reranker.
+
+The prompt's keyword instructions were frozen before the first run and never edited
+in response to results; its example words appear in none of the 52 queries. Its
+date section was revised once (§6.3). The eval model received only the system
+prompt and the query, the same call the product makes.
+
+Arms, 52 rows, one index, fresh base in the same run, `hit@10` / `hit@30` / gold in
+the candidate pool:
+
+| Arm | What the model output does | hit@10 | hit@30 | in pool |
+|---|---|---:|---:|---:|
+| Base | — | 25 | 31 | 45 |
+| Widen | keywords + passage only widen the candidate pool | 26 | 31 | 49 |
+| Tracks | keywords as an extra BM25 track + passage as an extra vector track | 23 | 32 | 49 |
+| **Keywords track** | keywords as an extra BM25 track | **29** | **33** | 46 |
+| Passage track (HyDE: a model-written sample answer used as the search text) | passage as an extra vector track | 16 | 30 | 48 |
+
+HyDE hurt most on table-only questions: 8 → 1 hit@10 on that 9-row split; the
+Tracks arm inherits that. Widen brings gold into the pool more often without
+moving ranks. Base 25/52 is consistent with 21/41 in §4 plus 4/10 forum questions
+(the forum split reads 4/10 in this run; §5.1 measured 5/10 on an earlier index —
+see the caveat in §1 and §5.5).
+
+**Decision rule**, written down before the run: hit@10 at least base + 3, no split
+loses more than one hit@10, at most two rows fall out of the top 10. Only the
+keywords track cleared it: +4, no split lost (frozen 6→7, table-only 8→8,
+table-vs-prose 6→7, forum questions 4→6, diagnostic 1→1, date query 0→0), no row
+left the top 10. Four rows entered: ranks 12→8, 11→10, 11→4, 23→6 — three from
+just outside the cut; two of the four are real forum questions.
+
+**Stability rule**, written down before re-sampling (the call runs without a
+temperature setting, so another draw gives different keywords): integrate only if ≥ +3 hit@10 over base in
+all three samples and no sample loses a split. Result: three samples, each 25 →
+**29** hit@10 (hit@30 33, 34, 34), the same four rows entering, none leaving,
+splits identical. The draws were not copies: identical keyword lists on only
+17–24 of 52 rows between any two samples, mean keyword overlap 0.81–0.86. The
+rule was met, and the track was integrated into Find.
+
+In the product: on by default, switchable off, 20 s timeout and no retries; if the
+call fails or is off, Find runs the plain local search and says so; the keywords
+used are shown under the result list.
+
+**Not measured:** latency added per search, and the combination with player-set
+filters. **Limits:** 52 rows, gains at the edge of the top 10, one model.
+
+### 6.5 Filters the player sets
+
+Integrated, not yet measured as retrieval. Fields: release year from/to (inclusive, no
+hidden margin), author (case-insensitive substring over catalog spellings;
+matched spellings shown), game, campaign yes/no, category tags (each either
+"any of" or "must have"). Fields combine with AND.
+
+The filter becomes a package allow-list applied **before** BM25 and vector search,
+not after the pool — the mechanism from the date probe in §6.2. No re-embed, no
+index rebuild: dates and tags live in side tables and are read at query time.
+Unknown stays in and is marked (an undated package under a year filter, an empty
+author, a package with no tags at all). A package that has tags but not a must-have tag is dropped, because the
+list records main aspects.
+
+The category tags come from a curated list: 54 categories in four groups (factions, locations, mission type, special features). The tags
+were matched to packages by title, with a manual review of unclear matches; 1,251
+of 1,430 packages carry at least one. The list records main aspects only, so a
+missing tag is not evidence of absence. Tags restrict the candidate set; they are
+never indexed as searchable text.
+
+Nothing about the filters has been measured as retrieval yet; an honest
+measurement needs filter values set from the query text alone, before any result
+is seen.
+
+### 6.6 Rules for every model step
+
+- The model sees only what the product sends at runtime — in the eval too.
+- A model step may add candidates or reorder them; it never removes them from the
+  ranked list.
+- What the player reads and what the code applies are one object. Player-set
+  filters satisfy this by construction; the keywords used are shown.
+- Save the full model reply in every eval report.
+- Corpus text never goes to a hosted model.
 
 ---
 
-## 7. What I would take to the next retrieval project
+## 7. What this evaluation is worth, and what it is not
+
+**A lower bound on a small sample.** 22 + 18 + 10 queries plus one date query.
+`hit@10` over 41 mixed rows folds two different gold conditions into one number;
+package-found and mission-found belong in **separate columns**, and that change is
+scheduled ahead of further ranking work. Without it, a drop cannot be read as a
+retrieval failure or a level-resolution failure.
+
+**Overfitting risk, named.** Every parameter touched here — the two BM25 constants,
+the RRF constant, pool depth — was tuned against the same 22 queries. That is why
+the one ranking change that was adopted is a defect fix with a mechanical explanation rather
+than a value that happened to score well, and why the remaining untried weighting
+idea is documented as set aside rather than tried. The query-side change had to
+clear rules written down before the run and before the re-samples.
+
+**Ranking work that is deliberately *not* next:** any further fusion-key or
+weighting variant. Six were measured; five lost and one was adopted. The yield from that
+direction is exhausted, and the measured bottleneck is level binding. The query
+side came first because it needed no rebuild, not because level binding stopped
+mattering.
+
+---
+
+## 8. What I would take to the next retrieval project
 
 - **Diagnose before tuning.** The one change that worked came from printing a single
   package's per-track ranks side by side. No aggregate score would have shown it —
@@ -559,3 +720,11 @@ direction is exhausted, and the measured bottleneck is level binding.
   instruction to whatever consumes the text.
 - **Real questions measure the product; frozen sets measure regressions.** Ten
   verbatim forum questions exposed more in one run than 41 frozen rows did all day.
+- **A model is better at vocabulary than at reading facts.** Query keywords held a
+  stable +4 hit@10 across three draws although the words differed; date reading was
+  wrong in different ways per run, so facts moved to fields the player sets.
+- **Write the decision rule down before re-sampling.** A sampled model gives different
+  output per call; a rule fixed after seeing the draws only confirms them.
+- **Measure what a model adds against a baseline built without one.** Without the
+  baseline, +4 has nothing to stand against; with it, the model-written passage
+  losing nine rows was visible in the first run.

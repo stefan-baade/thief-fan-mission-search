@@ -26,7 +26,9 @@ examples are anonymised and measurements are reported as aggregate numbers.
 The application these documents describe is private. It runs locally on a single
 machine, indexes material the operator holds for personal use, and is neither
 published, distributed nor offered as a service. Every step described in these
-documents runs on that machine; none of it sends content to a third party.
+documents runs on that machine; the only exception is the optional query-keyword
+step in Find, which sends the player's query (and nothing else) to a hosted
+language model. No indexed content is sent to a third party.
 
 ## No warranty, no advice
 

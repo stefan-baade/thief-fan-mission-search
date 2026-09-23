@@ -17,7 +17,8 @@ both: archives, string tables and level files follow the same conventions. Their
 
 The evaluation story is the more interesting document:
 **[RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md)** — six retrieval strategies measured
-and rejected, one defect diagnosed and fixed, all against a frozen gold set.
+and rejected, one defect diagnosed and fixed, one query-side change measured
+and integrated, all against a frozen gold set.
 
 A live demo can be shown on a call.
 
@@ -66,7 +67,10 @@ index only ever had to serve the finder.
 
 Two halves: an **offline pipeline** that turns archives and guide files into one
 structured document per package plus two indexes, and a **query-time search** that
-fuses three ranked lists into one candidate list. Both run on one machine.
+fuses three ranked lists — plus an optional fourth from query keywords — into one
+candidate list, optionally inside a player-set package allow-list. The pipeline is fully
+local; search is local except for one optional hosted call that sends the query
+text and nothing else.
 
 ```mermaid
 flowchart TB
@@ -85,26 +89,37 @@ flowchart TB
         CHK --> VEC
     end
 
-    subgraph search["Search at query time (local)"]
+    subgraph search["Search at query time (local, one optional hosted call)"]
         direction TB
         Q["Player's description"]
+        FIL["Player-set filters<br/>package allow-list"]
+        KW["Query keywords<br/>optional · hosted model · query text only"]
         B25["BM25 track"]
+        BKW["BM25 track on keywords"]
         DEN["Dense vector track"]
-        RER["Cross-encoder reranker<br/>over the union of both pools"]
+        RER["Cross-encoder reranker<br/>over the union of the raw pools"]
         RRF["RRF fusion<br/>on the package key"]
         COL["Collapse · demote · relative threshold · cap"]
         OUT["Ranked candidates<br/>or an honest miss"]
         Q --> B25
         Q --> DEN
+        Q --> KW
+        KW --> BKW
+        FIL --> B25
+        FIL --> DEN
+        FIL --> BKW
         B25 --> RER
         DEN --> RER
+        BKW --> RER
         B25 --> RRF
         DEN --> RRF
+        BKW --> RRF
         RER --> RRF
         RRF --> COL --> OUT
     end
 
     FTS -.-> B25
+    FTS -.-> BKW
     VEC -.-> DEN
 ```
 
@@ -116,6 +131,20 @@ flowchart TB
 3. **A cross-encoder reranker** scoring query and chunk together, over the union
    of the two raw pools.
 
+**An optional fourth track.** One hosted call, on the query text only, returns
+keywords in walkthrough and game-world vocabulary; those become an extra BM25
+track. The reranker still scores the player's original query, so the extra words
+can bring candidates in but do not re-weight it. On 52 rows the track gained
+**+4 hit@10** in each of three samples. It is on by default, can be switched off,
+and Find falls back to the local three tracks if the call fails — see
+[RETRIEVAL_EVAL.md §6](RETRIEVAL_EVAL.md#6-after-the-fusion-fix-the-query-side).
+
+**Player-set filters.** Release year, author, game, campaign yes/no and category
+tags become a package allow-list applied **before** BM25 and vector search, not
+after the pool. No re-embed and no index rebuild: release dates and tags sit in
+side tables next to the index and are read at query time. Unknown stays in and is marked — an undated package under a year filter, an
+empty author, a package with no tags.
+
 Fusion happens on the **package** key, not the chunk key. That single change is the
 subject of [RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md) and was worth more than every
 parameter variant measured around it.
@@ -126,16 +155,19 @@ candidates exist.
 
 ---
 
-## Everything runs on one machine
+## The search runs on one machine
 
 Not a deployment detail. It is a constraint the engineering is built around, and
 it is deliberate.
 
 The lexical index is a single SQLite file. The vector store is local. Embedding
 and reranking run on one 16 GB consumer GPU. Extraction caches sit on disk, keyed
-by content hash, so a rebuild is a script run rather than a re-download. **No part
-of the search path sends anything to a third party** — no hosted vector database,
-no embedding API, no reranking service.
+by content hash, so a rebuild is a script run rather than a re-download. **No
+indexed text leaves the machine** — no hosted vector database, no embedding API,
+no reranking service. One optional step calls a hosted model: Find can send the
+player's own query, and nothing else, to a language model that returns extra
+search keywords. It is on by default, can be switched off, and search falls back
+to fully local when it is off or unreachable.
 
 That shaped concrete decisions: the encoder runs in FP16 because the model plus a
 batch has to fit in the card; the candidate pool is 200 deep because reranker time
@@ -160,7 +192,9 @@ stays true.
 | Reranking | BGE-reranker-v2-m3, self-hosted | Beats hand-tuned score heuristics at ~200 candidates |
 | Fusion | Reciprocal Rank Fusion, k=60, on the package key | Combines incomparable score scales without calibration |
 | Extraction | Layout-preserving PDF text; spreadsheet readers for three formats; zip/7z recursion with ratio and volume guards | Guide files are loose, nested and inconsistent; the guards make a hostile archive skip-and-log instead of abort |
-| Interface | CLI first, FastAPI/React patterns reused from earlier projects | The first surface should expose raw rows, not hide them |
+| Interface | CLI plus a local web page for Find (FastAPI, React) | The first surface should expose raw rows, not hide them |
+| Query keywords | Claude Haiku 4.5, hosted; query text only, optional | The only hosted call; kept because it cleared a pre-written rule in three samples |
+| Filters | Player-set fields → package allow-list before retrieval | Applied at query time: no re-embed, no rebuild |
 | Runtime | Python, local GPU, content-hashed caches | Rebuilds are a script run, not a re-download |
 
 ---
@@ -259,6 +293,13 @@ but counting them as "has a walkthrough" would inflate the number that matters.
   Folding both into one number hides which of the two moved.
 - **Local by design, not by budget.** See above — it is also why the measurements
   are reproducible on one machine.
+- **Baseline first, then a model where it measurably helps.** Retrieval was built
+  and measured without any language model first. The model step had to beat that
+  baseline under a data boundary: query text may leave the machine; corpus text
+  does not.
+- **Facts from fields, vocabulary from a model.** A model reading of dates from
+  the query was unreliable. The player sets the filter, and what is set is what
+  is applied.
 
 ---
 
@@ -280,11 +321,28 @@ but counting them as "has a walkthrough" would inflate the number that matters.
   inside it. This is unbuilt scope, measured and scheduled, not a defect — see
   [RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md).
 - Gold sets are small (22 frozen queries, an 18-query second split, 10 real forum
-  questions). Every number here is a lower bound on a small sample, and the
-  evaluation document says where overfitting risk sits.
+  questions, one date query). Every number here is a lower bound on a small sample,
+  and the evaluation document says where overfitting risk sits.
+- Filters are not yet measured as retrieval. The category list covers 1,251 of
+  1,430 packages and records main aspects only. The keyword step's gain is one
+  model, 52 rows, mostly at the edge of the top 10; latency is unmeasured.
 - Some extraction limits are named and accepted rather than solved: two-column
   blocks of independent items on one text baseline stay unordered, because layout
   extraction cannot restore a pairing the PDF never encoded.
+
+---
+
+## Where it stands
+
+- Three local tracks fused on the package key.
+- An optional query-keyword track, integrated, on by default.
+- Player-set filters, including category tags from a curated list — integrated, not
+  yet measured as retrieval.
+- A CLI and a local web page for Find.
+- Next measured bottleneck: level binding inside campaigns, then package-found
+  and mission-found as separate columns.
+- Model steps that need corpus text are only possible with a local model; they
+  are not built.
 
 ---
 
