@@ -632,12 +632,35 @@ splits identical. The draws were not copies: identical keyword lists on only
 17–24 of 52 rows between any two samples, mean keyword overlap 0.81–0.86. The
 rule was met, and the track was integrated into Find.
 
-In the product: on by default, switchable off, 20 s timeout and no retries; if the
-call fails or is off, Find runs the plain local search and says so; the keywords
-used are shown under the result list.
+In the application: on by default, switchable off, 20 s timeout and no retries; if
+the call fails or is off, Find runs the plain local search and says so; the
+keywords used are shown under the result list.
 
-**Not measured:** latency added per search, and the combination with player-set
-filters. **Limits:** 52 rows, gains at the edge of the top 10, one model.
+**Latency and cost, measured afterwards.** Same 52 queries, the call exactly as
+Find makes it, GPU warm. The reply carries the keywords first, then a passage and a
+date reading that Find does not use — 58 % of the output characters in the cached
+replies. A stop sequence right after the keyword list keeps the prompt
+byte-identical: generation runs left to right, so everything up to the stop is
+sampled as before. Cutting the 156 cached replies at that point gave the identical
+keyword list every time.
+
+| Call | Median / p95 | Output tokens | USD per 1,000 searches | Added per search, median / p95 |
+|---|---:|---:|---:|---:|
+| Full reply | 2.16 / 3.43 s | 180 | 1.61 | 2.56 / 4.35 s |
+| Stop after keywords | 1.30 / 2.38 s | 78 | 1.10 | 1.59 / 3.17 s |
+
+Prices assumed at USD 1 / 5 per million input / output tokens; input is 709 tokens
+either way. "Added per search" is the call plus the extra search time of the fourth
+track. Decision rule, written down before the runs: keep the stop only if three new
+draws each hold ≥ +3 hit@10 over base with no split lost, and the median call is
+faster. Result: 25 → 29 in each draw, no split lost, 0 parse failures. Find now
+stops after the keyword list.
+
+The rest of a search is local and dominated by the reranker: about 2.0 s median
+without keywords and 2.4 s with them, roughly 95 % of it reranking, because the
+keyword track enlarges the pool it scores.
+
+**Not measured:** the combination with player-set filters. **Limits:** 52 rows, gains at the edge of the top 10, one model.
 
 ### 6.5 Filters the player sets
 

@@ -325,7 +325,8 @@ but counting them as "has a walkthrough" would inflate the number that matters.
   and the evaluation document says where overfitting risk sits.
 - Filters are not yet measured as retrieval. The category list covers 1,251 of
   1,430 packages and records main aspects only. The keyword step's gain is one
-  model, 52 rows, mostly at the edge of the top 10; latency is unmeasured.
+  model, 52 rows, mostly at the edge of the top 10. The step adds about 1.6 s
+  per search (median, one machine); the local reranker takes about 2 s either way.
 - Some extraction limits are named and accepted rather than solved: two-column
   blocks of independent items on one text baseline stay unordered, because layout
   extraction cannot restore a pairing the PDF never encoded.
