@@ -322,8 +322,8 @@ but counting them as "has a walkthrough" would inflate the number that matters.
 - 90 % of indexed chunks are not bound to a specific level. For single-level
   packages that costs nothing; for large campaigns it means an entire walkthrough
   sits in the index as one package-level blob, and no query can aim at one level
-  inside it. This is unbuilt scope, measured and scheduled, not a defect — see
-  [RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md).
+  inside it. Measured, partly tried, and the rest deliberately left — see
+  [RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md) §5.3.
 - Gold sets are small (22 frozen queries, an 18-query second split, 1 diagnostic,
   10 real forum questions, one date query). Every number here is a lower bound on a small sample,
   and the evaluation document says where overfitting risk sits.
@@ -345,8 +345,9 @@ but counting them as "has a walkthrough" would inflate the number that matters.
 - Player-set filters, including category tags from a curated list — integrated, not
   yet measured as retrieval.
 - A CLI and a local web page for Find.
-- Next measured bottleneck: level binding inside campaigns, then package-found
-  and mission-found as separate columns.
+- Level binding inside campaigns was tried; the rest was left on purpose
+  ([RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md) §5.3). Package-found and mission-found
+  as separate columns are still ahead of further ranking work.
 - Model steps that need corpus text are only possible with a local model; they
   are not built.
 

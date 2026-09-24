@@ -439,7 +439,7 @@ unbound. For those, an entire walkthrough sits in the index as one package-level
 blob, and no question can aim at one level inside it. The one campaign that *is*
 properly split is also the only mission-scope frozen row that lands well.
 
-Two probes (nothing built yet) asked whether those campaigns can be bound:
+Two probes (before any binding was built) asked whether those campaigns can be bound:
 
 | Route | Packages | What it needs |
 |---|---:|---|
@@ -448,13 +448,135 @@ Two probes (nothing built yet) asked whether those campaigns can be bound:
 | No walkthrough at all | 21 | Nothing to bind — a coverage problem |
 | Partial structure | 3 | Manual reading |
 
-Level titles are already indexed and bound at 100 %, so nothing has to be guessed —
-only matched. **Three traps found in the samples before a single line of splitter was
-written:** a loot line that reads as a heading; a cross-reference that points the
+Level titles are already indexed and bound at 100 %. Matching a walkthrough line
+to one of them is where the difficulty turned out to be. **Three traps found in
+the samples before a single line of splitter was written:** a loot line that
+reads as a heading; a cross-reference that points the
 reader to the next page; and one campaign that labels two *different* levels with
-the same ordinal in two files. Hence the rule for when it is built: **title match
-first, ordinal only as fallback**, and ignore lines shaped like table rows. Twenty
-cuts get read by eye before that logic goes near the chunker.
+the same ordinal in two files. The rule that was tried is **title match first,
+ordinal only as fallback**, and ignore lines shaped like table rows. The chunker
+still does not apply it. The search index is unchanged.
+
+**Recounted on 2026-09-24.** The table above is 98 packages two probes could sort
+by hand (27 + 47 + 21 + 3). It is not every multi-mission package. The 130 named
+above is a third set again: version groups whose indexed chunks already carry more
+than one level id. A full pass over the catalog, every package with more than one
+playable mission, comes to **157**.
+
+| Layout | Packages |
+|---|---:|
+| Exactly one walkthrough file | 94 |
+| As many walkthrough files as levels | 11 |
+| Several files, not one per level | 10 |
+| No walkthrough | 42 |
+
+"As many files as levels" is not the hand count of 27, and equal counts are still
+not one file per level. A package can hold two copies of the whole campaign, or
+one file for a single mission beside a file that covers two. Of the 11, seven
+have each walkthrough file on a level. Two of those seven were bound in this pass,
+because each file really is one level. Of the other four, one holds two copies of
+the whole campaign and stays unbound. The remaining three share two files. The
+single-mission file now carries that level's id, after its objectives were read.
+The file that covers both missions stays unbound. Those ids sit in the extracted
+mission file a rebuild would read. No rebuild was run.
+
+Heading lines, on walkthroughs that still have no level id, under the repaired
+title rule (the line equals the title, or a heading prefix, a number, a colon or
+dash, and the rest equals the title):
+
+| Group | Packages |
+|---|---:|
+| A title line for every level | 22 |
+| At least one level still needs an ordinal | 48 |
+| More than one heading, not every level | 16 |
+| A single heading line | 8 |
+
+That is 94 packages where the matcher hit at least one line. The same 157
+also split by whether anything is bound yet:
+
+| Where the 157 sit | Packages |
+|---|---:|
+| A heading the rule accepts | 94 |
+| Walkthrough text, no accepted line | 11 |
+| No walkthrough | 42 |
+| Every walkthrough file already on a level | 10 |
+
+These are not the layout rows. The 94 here are every package with at least one
+accepted heading, not the 94 that have exactly one walkthrough file. The 11
+with no accepted line are not the 11 with as many files as levels. The 10
+already on a level are not the 10 with several files. Only the 42 with no
+walkthrough are the same packages in both tables. The old 47 was a hand sort
+of heading-shaped files. Most campaigns have a single walkthrough file, which
+is why the heading bucket is the large one.
+
+**Eye checks, seeds fixed before each draw.** Packages first, then one cut, so
+one campaign cannot fill several slots. A cut is wrong when the section it
+starts is not that level. An unclear cut counts as wrong. The bar is about one
+wrong cut in ten, so a draw of five allows none.
+
+| Group | Drawn | Bar | Seed 20260924, proposer | Seed 20260925, reader who had not written the title rule |
+|---|---:|---|---|---|
+| Ordinal still needed | 10 | at most 1 | 0 wrong | not a new test; the ordinal rule had not changed |
+| Title covers every level | 5 | none | 2 wrong | 1 wrong |
+| Partial | 5 | none | 1 wrong | 0 wrong |
+| Single heading line | 5 | none | 2 wrong | 2 wrong |
+
+The first draw used a title rule that matched a title's words inside a sentence.
+I did not review the cuts myself. The model that proposed the cuts
+then scored all 25. That score does not adopt a group. Three of the ordinal
+cuts, the ones whose catalog titles do not name the level, were checked against
+each level's objectives by a model that had not written the rules: 3 of 3
+correct. That closed the ordinal sample for the rule as it stood.
+
+The title rule was then repaired: the whole line has to equal the title. The
+second draw is that rule. Its ordinal ten were a fresh sample of a rule that
+had not changed, so they add no new claim. The three groups the repair could
+change were read by a model that had not written it, each section against every
+level's objectives. Partial cleared its bar. Title and single-line did not.
+
+**Patterns the samples actually produced.**
+
+- A level title inside a sentence: a numbered step, an author's note, a preface.
+  The first title rule matched these. The repair rejects them.
+- A document title that equals a level title. The first line of the file is the
+  level's name, and what follows is credits, or another level's walkthrough.
+  The repair, which fixed the sentence, now matches this line. One file has the
+  same shape and the section really is that level, so a rule that rejected every
+  such line would have dropped a right cut. That rule was not adopted. Changing
+  the title rule again would have needed a new seed.
+- A pointer to the next page. The filter knows "next page". It did not know
+  "following page", so "Mission Two on following page" became a cut a few
+  lines early.
+- A sentence fragment that starts with Part or Mission and a number ("part 1 of
+  the mission"). The ordinal reader accepts the prefix. The title reader no
+  longer accepts a title's words inside a sentence. The same shape with the next
+  number would attach the end of one level to the next.
+
+One right cut in the partial group is worth keeping in view. The heading says
+episode 3, and that level is fifth in play order, because a briefing and an
+earlier part sit in the list. The title matched. An ordinal reading of "3"
+would have been the wrong level. Title before ordinal stays necessary.
+
+**Stopped here.** The use is the mission in the top 10 while skimming. For a
+campaign, the package in that list is enough: the level is recognizable inside
+it. Level-found is the column binding would move, and the frozen set has seven
+mission-scope rows, so a gain is barely measurable. The bind applies to 157 of
+1,430 packages. Without a cut, the named-level path (out of scope here) sends
+the whole campaign text, and a current model can find the named level in it.
+
+What is kept: the two one-file-per-level packages, the single-mission file, and
+every title cut in the partial group. Of the five cuts drawn from that group,
+three were title cuts and two were ordinal. The keep is every title cut in the
+group, not only those three lines. The ordinal cuts stay out, because the
+ordinal holes are not confined to one group. The title cuts are not applied,
+and they are not a reason to rebuild. A later rebuild for some other reason may apply them. It does not
+apply ordinal cuts.
+
+Left unbound: ordinal cuts in every group, the title-complete group, and the
+single-line group. No further rule, no further draw, no corpus count of the
+remaining patterns, no rebuild and no measurement for this remainder. Precision
+before coverage, and then a stop, because the rest barely moves the list that
+matters.
 
 ### 5.4 A grouping key that splits families it should hold together
 
@@ -484,7 +606,8 @@ map) — curated, checked, never overwritten automatically.
 is the correct outcome, not a failed fix. The corrections merge two version families
 (3,300 chunks that were split across four groups), which removes duplicate rows from
 result lists — but the two queries still missing are mission-scope, and merging
-groups adds chunks without adding a single *bound* one. Their fix is §5.3, not this.
+groups adds chunks without adding a single *bound* one. Binding the level
+would be §5.3, and that work stopped there.
 
 A related catalog-health scan over all 1,388 distinct catalog title rows found
 exactly **five** untrustworthy titles (two mis-decoded from another codepage,
@@ -531,8 +654,8 @@ may go to a hosted model; corpus text does not.
 
 The ten real forum questions pointed at the query side: vocabulary gaps (§5.2) and
 facts the player states that the index never reads (a release date). The query side
-also needed no rebuild. Level binding (§5.3) remains the measured bottleneck for
-mission-scope rows.
+also needed no rebuild. Level binding is why a mission-scope row can miss when
+the package is found (§5.3). The rest of that bind was looked at and left.
 
 Steps that would need corpus text — a model reordering the top 30 using the chunks
 that made them rank; short per-level descriptions in player vocabulary generated at
@@ -733,9 +856,10 @@ clear rules written down before the run and before the re-samples.
 
 **Ranking work that is deliberately *not* next:** any further fusion-key or
 weighting variant. Six were measured; five lost and one was adopted. The yield from that
-direction is exhausted, and the measured bottleneck is level binding. The query
-side came first because it needed no rebuild, not because level binding stopped
-mattering.
+direction is exhausted. Level binding is why a mission-scope row can miss when
+the package is found, and §5.3 is where that work stops: further heading rules
+would barely move the top-10 list. The query side came first because it needed
+no rebuild.
 
 ---
 
@@ -768,6 +892,11 @@ mattering.
   wrong in different ways per run, so facts moved to fields the player sets.
 - **Write the decision rule down before re-sampling.** A sampled model gives different
   output per call; a rule fixed after seeing the draws only confirms them.
+- **Stop when the next improvement does not move the use.** Level binding was the
+  measured bottleneck, and the samples showed that heading rules in this corpus
+  have many special cases. The list a player skims is packages. For a campaign,
+  that package is enough to recognise the mission. The rest of the bind was left
+  on purpose.
 - **Measure what a model adds against a baseline built without one.** Without the
   baseline, +4 has nothing to stand against; with it, the model-written passage
   losing nine rows was visible in the first run.
