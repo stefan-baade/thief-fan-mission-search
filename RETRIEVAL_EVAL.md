@@ -568,8 +568,9 @@ apply it as a pre-filter.
 15+ years ago" was first read in the wrong direction (within 15 years). After a
 prompt revision, "It's old" became "older than 1 year", "played a few years ago" was read as a release
 date ("within 3 years", which would have filtered out that row's gold), and the
-date query itself came back with no reading. The model is called without a
-temperature setting, so one run cannot separate a prompt effect from sampling. The
+date query itself came back with no reading. The model runs at the provider's
+default sampling setting, in the eval and in the application alike, so one run
+cannot separate a prompt effect from sampling. The
 date rules were written after reading the date cues in the forum rows, so these
 rows only check rule-following, not generalisation.
 
@@ -622,9 +623,10 @@ table-vs-prose 6→7, forum questions 4→6, diagnostic 1→1, date query 0→0)
 left the top 10. Four rows entered: ranks 12→8, 11→10, 11→4, 23→6 — three from
 just outside the cut; two of the four are real forum questions.
 
-**Stability rule**, written down before re-sampling (the call runs without a
-temperature setting, so another draw gives different keywords): integrate only if ≥ +3 hit@10 over base in
-all three samples and no sample loses a split. Result: three samples, each 25 →
+**Stability rule**, written down before re-sampling (the call runs at the
+provider's default sampling setting, so another draw gives different keywords;
+temperature 0 would reduce that variation but does not guarantee identical
+output): integrate only if ≥ +3 hit@10 over base in all three samples and no sample loses a split. Result: three samples, each 25 →
 **29** hit@10 (hit@30 33, 34, 34), the same four rows entering, none leaving,
 splits identical. The draws were not copies: identical keyword lists on only
 17–24 of 52 rows between any two samples, mean keyword overlap 0.81–0.86. The

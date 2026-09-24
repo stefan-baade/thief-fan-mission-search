@@ -123,7 +123,7 @@ flowchart TB
     VEC -.-> DEN
 ```
 
-### The three tracks
+### Three tracks, and an optional fourth
 
 1. **BM25** over the lexical index — carries proper nouns, place names, item names.
 2. **Dense vectors** from a multilingual embedding model — carries paraphrase and
