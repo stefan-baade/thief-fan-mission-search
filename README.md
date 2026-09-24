@@ -51,8 +51,9 @@ Three properties make this harder than a document search:
 ## Scope of this documentation
 
 This describes the **search** half of the project and its evaluation. Search is
-where the engineering is: fusion of three retrieval tracks, a measured ranking
-defect, and the data pipeline that makes any of it possible.
+where the engineering is: fusion of three retrieval tracks plus an optional
+fourth from query keywords, a measured ranking defect, and the data pipeline
+that makes any of it possible.
 
 The project also has a path for a question about a level the player *can* name.
 That path is deliberately **not** a retrieval problem — a named level needs
@@ -170,8 +171,11 @@ search keywords. It is on by default, can be switched off, and search falls back
 to fully local when it is off or unreachable.
 
 That shaped concrete decisions: the encoder runs in FP16 because the model plus a
-batch has to fit in the card; the candidate pool is 200 deep because reranker time
-grows linearly with it; a full re-embed of 84,090 chunks takes about 16 minutes at
+batch has to fit in the card; the candidate pool is 100 deep, because reranker
+time grows with it. Against pool 200
+on the same 52 rows it lost no hit@10 and no hit@30, and the reranker median
+fell from 2.57 s to 1.44 s. Pool 50 lost two hit@10 and was not adopted. A full
+re-embed of 84,090 chunks takes about 16 minutes at
 roughly 85 chunks per second, which is what makes "rebuild and re-measure" a
 routine step instead of an event.
 
@@ -189,7 +193,7 @@ stays true.
 | Lexical retrieval | SQLite FTS5 | Zero-infrastructure BM25; the whole index is one file |
 | Vector store | ChromaDB, local | Same reason; metadata filters on every row |
 | Embeddings | BGE-M3, FP16 on a 16 GB consumer GPU | Multilingual: German questions against an English corpus |
-| Reranking | BGE-reranker-v2-m3, self-hosted | Beats hand-tuned score heuristics at ~200 candidates |
+| Reranking | BGE-reranker-v2-m3, self-hosted | Beats hand-tuned score heuristics at ~100 candidates |
 | Fusion | Reciprocal Rank Fusion, k=60, on the package key | Combines incomparable score scales without calibration |
 | Extraction | Layout-preserving PDF text; spreadsheet readers for three formats; zip/7z recursion with ratio and volume guards | Guide files are loose, nested and inconsistent; the guards make a hostile archive skip-and-log instead of abort |
 | Interface | CLI plus a local web page for Find (FastAPI, React) | The first surface should expose raw rows, not hide them |
@@ -320,13 +324,14 @@ but counting them as "has a walkthrough" would inflate the number that matters.
   sits in the index as one package-level blob, and no query can aim at one level
   inside it. This is unbuilt scope, measured and scheduled, not a defect — see
   [RETRIEVAL_EVAL.md](RETRIEVAL_EVAL.md).
-- Gold sets are small (22 frozen queries, an 18-query second split, 10 real forum
-  questions, one date query). Every number here is a lower bound on a small sample,
+- Gold sets are small (22 frozen queries, an 18-query second split, 1 diagnostic,
+  10 real forum questions, one date query). Every number here is a lower bound on a small sample,
   and the evaluation document says where overfitting risk sits.
 - Filters are not yet measured as retrieval. The category list covers 1,251 of
   1,430 packages and records main aspects only. The keyword step's gain is one
   model, 52 rows, mostly at the edge of the top 10. The step adds about 1.6 s
-  per search (median, one machine); the local reranker takes about 2 s either way.
+  per search (median, one machine, measured at pool 200). At the current pool
+  of 100 the reranker median is 1.44 s.
 - Some extraction limits are named and accepted rather than solved: two-column
   blocks of independent items on one text baseline stay unordered, because layout
   extraction cannot restore a pairing the PDF never encoded.

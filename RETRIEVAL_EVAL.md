@@ -656,9 +656,26 @@ draws each hold ≥ +3 hit@10 over base with no split lost, and the median call 
 faster. Result: 25 → 29 in each draw, no split lost, 0 parse failures. Find now
 stops after the keyword list.
 
-The rest of a search is local and dominated by the reranker: about 2.0 s median
-without keywords and 2.4 s with them, roughly 95 % of it reranking, because the
-keyword track enlarges the pool it scores.
+The rest of a search is local and dominated by the reranker. At pool 200 that
+was about 2.0 s median without keywords and 2.4 s with them, roughly 95 % of it
+reranking, because the keyword track enlarges the pool it scores.
+
+**Pool depth, measured afterwards.** One run, pools 50, 100 and 200, the same
+52 rows, keywords taken from the existing cache so the run is deterministic.
+The run recorded the fused rank only, not candidate-pool membership.
+"Absent" means the gold has no rank in the list returned (capped at 200).
+
+| Pool | hit@10 | hit@30 | Absent from the list | Reranker median |
+|---|---:|---:|---:|---:|
+| 50 | 27 | 33 | 18 | 0.85 s |
+| 100 | 30 | 33 | 14 | 1.44 s |
+| 200 | 29 | 33 | 11 | 2.57 s |
+
+Decision rule, written down before the run: adopt a smaller pool only if hit@10
+is at most 1 below pool 200 and no split loses more than one. Pool 100 clears
+it. hit@30 does not move. Three more rows are absent from the list than at 200,
+and those rows were already outside the top 30. The reranker median falls from
+2.57 s to 1.44 s. Pool 50 loses two hit@10 and is not adopted. Find uses pool 100.
 
 **Not measured:** the combination with player-set filters. **Limits:** 52 rows, gains at the edge of the top 10, one model.
 
@@ -700,7 +717,8 @@ is seen.
 
 ## 7. What this evaluation is worth, and what it is not
 
-**A lower bound on a small sample.** 22 + 18 + 10 queries plus one date query.
+**A lower bound on a small sample.** 22 + 18 + 1 diagnostic + 10 forum questions
+plus one date query.
 `hit@10` over 41 mixed rows folds two different gold conditions into one number;
 package-found and mission-found belong in **separate columns**, and that change is
 scheduled ahead of further ranking work. Without it, a drop cannot be read as a
